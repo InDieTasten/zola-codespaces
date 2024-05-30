@@ -49,8 +49,8 @@ pub struct Site {
     pub config: Config,
     pub tera: Tera,
     imageproc: Arc<Mutex<imageproc::Processor>>,
-    // the live reload port to be used if there is one
-    pub live_reload: Option<u16>,
+    // whether to we are serving with live reload or not
+    pub live_reload: bool,
     pub output_path: PathBuf,
     content_path: PathBuf,
     pub static_path: PathBuf,
@@ -92,7 +92,7 @@ impl Site {
             config,
             tera,
             imageproc: Arc::new(Mutex::new(imageproc)),
-            live_reload: None,
+            live_reload: false,
             output_path,
             content_path,
             static_path,
@@ -131,16 +131,8 @@ impl Site {
         res
     }
 
-    /// We avoid the port the server is going to use as it's not bound yet
-    /// when calling this function and we could end up having tried to bind
-    /// both http and websocket server to the same port
-    pub fn enable_live_reload(&mut self, port_to_avoid: u16) {
-        self.live_reload = get_available_port(port_to_avoid);
-    }
-
-    /// Only used in `zola serve` to re-use the initial websocket port
-    pub fn enable_live_reload_with_port(&mut self, live_reload_port: u16) {
-        self.live_reload = Some(live_reload_port);
+    pub fn enable_live_reload(&mut self) {
+        self.live_reload = true;
     }
 
     /// Reloads the templates and rebuild the site without re-markdown the Markdown.
@@ -566,9 +558,8 @@ impl Site {
 
     /// Inject live reload script tag if in live reload mode
     fn inject_livereload(&self, mut html: String) -> String {
-        if let Some(port) = self.live_reload {
-            let script =
-                format!(r#"<script src="/livereload.js?port={}&amp;mindelay=10"></script>"#, port,);
+        if self.live_reload {
+            let script = r#"<script src="/livereload.js?mindelay=10"></script>"#;
             if let Some(index) = html.rfind("</body>") {
                 html.insert_str(index, &script);
             } else {
